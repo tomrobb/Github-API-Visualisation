@@ -12,6 +12,6 @@ db = client.classDB
 
 githubuser = db.githubuser.find()
 
-for user in githubuser:
+for user in db.githubuser.find({'location': {'$exists': True}}):
     pprint.pprint(user)
     print()
