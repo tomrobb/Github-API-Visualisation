@@ -1,16 +1,10 @@
-# This is a sample Python script.
+# import Github from the PyGithub library
+from github import Github
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+g = Github("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")
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+usr = g.get_user()
+print("user:        " + usr.login)
+print("fullname:    " + usr.name)
+print("location:    " + usr.location)
+print("company:     " + usr.company)
