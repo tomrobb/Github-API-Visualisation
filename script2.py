@@ -10,7 +10,7 @@ client = pymongo.MongoClient(conn)
 # create a database
 db = client.classDB
 
-githubuser = db.githubuser.find()
+
 
 for user in db.githubuser.find({'location': {'$exists': True}}):
     pprint.pprint(user)
