@@ -4,14 +4,22 @@ import json
 import pymongo
 
 g = Github("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")
-
 usr = g.get_user()
 print("Username:    " + usr.login)
 
+
+s = ""
+for repo in usr.get_repos():
+    s += repo.name + "#"
+# removing the last character, so the string is easier to split in the future
+s = s[:-1]
+
+# putting our data into a dictionary for the database
 dct = {'user': usr.login,
        'fullname': usr.name,
        'location': usr.location,
-       'company': usr.company
+       'company': usr.company,
+       'repos': s
        }
 
 print("dictionary is: " + json.dumps(dct))
