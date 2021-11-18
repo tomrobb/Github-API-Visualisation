@@ -158,42 +158,44 @@ if external_repo == True:
         lRepo = ext_repo[19:]
         split_repo = lRepo.split('/')
         cRepo = split_repo[1]
+    else:
+        lRepo = "dabreadman/Node-Podman-OpenShift-CI-CD"
+        cRepo = "Node-Podman-OpenShift-CI-CD"
 
+
+
+################## TOP BAR ################
+st.title('🌐 Github API Data Visualisation')
+
+
+st.write("Current Repository: " + cRepo)
+st.caption("Link to the repository [here](https://github.com/" + lRepo +")")
+
+
+
+col1_1, col1_2, col1_3 = st.columns(3)
+############# LEFT COLUMN ################
+
+
+currentRepo = g.get_repo(lRepo)
+ownerImage = currentRepo.owner.avatar_url
+ownerName = currentRepo.owner.name
+ownerUser = currentRepo.owner.login
+
+
+col1_1.markdown("![Avatar of Repo Owner ><]("+ ownerImage + "&s=150)")
+col1_1.caption("###### Owner of Repository: ")
+if ownerName is not None:
+    col1_1.markdown("""##### **""" + ownerName + """**""" + """ ("""+ ownerUser + """)""")
+else:
+    col1_1.markdown("""##### **""" + ownerUser + """**""")
+
+
+
+
+######### MIDDLE COLUMN ###########
 
 if database_repo == True:
-    ################## TOP BAR ################
-
-    st.title('🌐 Github API Data Visualisation')
-
-
-    st.write("Current Repository: " + cRepo)
-    st.caption("Link to the repository [here](https://github.com/" + lRepo +")")
-
-
-
-    col1_1, col1_2, col1_3 = st.columns(3)
-    ############# LEFT COLUMN ################
-
-
-    currentRepo = g.get_repo(lRepo)
-    ownerImage = currentRepo.owner.avatar_url
-    ownerName = currentRepo.owner.name
-    ownerUser = currentRepo.owner.login
-
-
-    col1_1.markdown("![Avatar of Repo Owner ><]("+ ownerImage + "&s=150)")
-    col1_1.caption("###### Owner of Repository: ")
-    if ownerName is not None:
-        col1_1.markdown("""##### **""" + ownerName + """**""" + """ ("""+ ownerUser + """)""")
-    else:
-        col1_1.markdown("""##### **""" + ownerUser + """**""")
-
-
-
-
-    ######### MIDDLE COLUMN ###########
-
-
     rnlabels = []
     rnvalues = []
     # getting the usernames and values from the languages
@@ -224,12 +226,12 @@ if database_repo == True:
     col1_2.plotly_chart(fig2, use_container_width=True)
 
 
-    ##########################
+##########################
 
 
-    ####### RIGHT COLUMN #########
+####### RIGHT COLUMN #########
 
-
+if database_repo == True:
     langdict = get_repo_languages(cRepo)
 
     # getting the usernames and values from the languages
@@ -263,6 +265,3 @@ authordict = get_repo_authors(cRepo)
 
 
 st.write('note: these graphs currently dont display anything from the github api oops sorry')
-
-
-
