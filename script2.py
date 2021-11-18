@@ -10,8 +10,13 @@ client = pymongo.MongoClient(conn)
 # create a database
 db = client.classDB
 
+for repo in db.githubrepos.find({'commits': {'$exists': True}}):
+        print(repo.get('languages'))
 
 
 for user in db.githubuser.find({'location': {'$exists': True}}):
     pprint.pprint(user)
     print()
+
+
+
