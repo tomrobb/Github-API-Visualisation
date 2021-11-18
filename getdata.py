@@ -46,6 +46,7 @@ for repo in usr.get_repos():
     print("   - stars: " + str(repo.stargazers_count))
     print(repo.get_languages())
     print(repo.get_commits().totalCount)
+    repo.
 
 
     commits = repo.get_commits()
