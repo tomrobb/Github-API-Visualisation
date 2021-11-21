@@ -1,267 +1,256 @@
 import yfinance as yf
 import streamlit as st
 from github import Github
-import pymongo
 import datetime
 import plotly.express as px
-import matplotlib.pyplot as plt
 import pandas as pd
-import bokeh
 import plotly.graph_objects as go
 from math import pi
-import json
-import pprint
+from collections import Counter
 
 
 # A simple webapp used to display data, using streamlit.
 # currently using data from yfinance, planning to use
 # data from my database next.
 
+
 # connecting to github api via access token
 g = Github("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")
 
-# establishing a connection
-conn = "mongodb://localhost:27017"
-client = pymongo.MongoClient(conn)
-
-# create a database
-db = client.classDB
-
 st.set_page_config(layout="wide")
 
-cRepo = ""
-database_repo = True
-external_repo = False
 
-@st.cache
-def get_user():
-    for user in db.githubuser.find({'user': {'$exists': True}}):
-        s = user.get('user')
-    return s
+def display_user_info(usr):
+    userImage = usr.avatar_url
+    userName = usr.name
+    userLogin = usr.login
+    userLocation = usr.location
 
-
-@st.cache
-def get_fullname():
-    for user in db.githubuser.find({'fullname': {'$exists': True}}):
-        s = user.get('fullname')
-    return s
+    col1_1.markdown("![User's Avatar ><]("+ userImage + "&s=150)")
+    col1_2.markdown("##### " + userLogin)
+    if userName is not None:
+        col1_2.write(" " + userName)
+    if userLocation is not None:
+        col1_2.write(userLocation)
 
 
-@st.cache
-def get_location():
-    for user in db.githubuser.find({'location': {'$exists': True}}):
-        s = user.get('location')
-    return s
+def get_repo_names(userRepos):
+    nameList = []
+    for i in userRepos:
+        nameList.append(i.name)
+    return nameList
 
 
-@st.cache
-def get_repo_names():
-    for user in db.githubuser.find({'repos': {'$exists': True}}):
-        s = user.get('repos')
-    fullnames = s.split('#')
-    allrepos = []
-    for i in fullnames:
-        allrepos.append(g.get_repo(i).name)
-    allrepos.sort()
-    return allrepos
+def get_total_stars(userRepos):
+    total = 0
+    for i in userRepos:
+        total = total + i.stargazers_count
+    return total
 
-
-@st.cache
-def get_full_repo_names():
-    for user in db.githubuser.find({'repos': {'$exists': True}}):
-        s = user.get('repos')
-    fullnames = s.split('#')
-    fullnames.sort()
-    return fullnames
-
-
-@st.cache
-def get_longer_name(name, fullnames):
-    longname= [s for s in fullnames if name in s]
-    longname = str(longname)
-    longname = longname[2:-2]
-    return longname
-
-@st.cache
-def get_num_repo_commits():
-    rn = {}
-    for repo in db.githubrepos.find({'name': {'$exists': True}}):
-        name = repo.get('name')
-        num = len(repo.get('commits'))
-        rn[name] = num
-    return rn
-
-@st.cache
-def get_repo_data(name):
-    for repo in db.githubrepos.find({'name': {'$exists': True}}):
-        s = repo.get('name')
-        if s == name:
-            dct = { 'name': repo.get('name'),
-                     'fullname': repo.get('fullname'),
-                     'stars': repo.get('stars'),
-                     'authors': repo.get('authors'),
-                     'languages': repo.get('languages'),
-                     'totalcommits': repo.get('totalcommits'),
-                     'commits': repo.get('commits')
-            }
-            return dct
-
-@st.cache
-def get_repo_authors(name):
-    for repo in db.githubrepos.find({'name': {'$exists': True}}):
-        s = repo.get('name')
-        if s == name:
-            return repo.get('authors')
-
-@st.cache
-def get_repo_languages(name):
-    for repo in db.githubrepos.find({'languages': {'$exists': True}}):
-        s = repo.get('name')
-        if s == name:
-            return repo.get('languages')
-
-
-# data constants (declared at start so theres not a bunch of api & db calls in the program)
-repoNames = get_repo_names()
-longRepoNames = get_full_repo_names()
-numRepoCommits = get_num_repo_commits()
-
+def get_repo_sizes(userRepos):
+    dct = {}
+    for i in userRepos:
+        dct[i.name] = i.size
+    return dct
 
 
 
 ###### SIDEBAR CODE #######
+input_type = "null"
+valid_input = True
 
-st.sidebar.title("Control Panel")
+st.sidebar.image('./images/logo.png')
 
-input_type = st.sidebar.radio(
-    "Data Type: ", ("From local database", "From Repo Link")
-)
-if input_type == "From local database":
-    database_repo = True
-    external_repo = False
-if input_type == "From Repo Link":
-    database_repo = False
-    external_repo = True
-
-if database_repo == True:
-    st.sidebar.subheader(get_user())
-    st.sidebar.write(get_fullname() + " - " + get_location())
-
-    cRepo = st.sidebar.selectbox('Choose a repository:', repoNames)
-    lRepo = str(get_longer_name(cRepo, longRepoNames))
+user_in = st.sidebar.text_input("Enter github username or repo link:")
+# for when the user inputs a username
+if "/" not in user_in and len(user_in) > 3:
+    input_type = "user"
+    try:
+        usr  = g.get_user(user_in)
+    except:
+        st.sidebar.write("User not found")
+        valid_input = False
 
 
-if external_repo == True:
-    st.sidebar.write("or")
-    ext_repo = st.sidebar.text_input("Paste a link to an external repository: ")
-    if len(ext_repo) > 22:
-        lRepo = ext_repo[19:]
-        split_repo = lRepo.split('/')
-        cRepo = split_repo[1]
-    else:
-        lRepo = "dabreadman/Node-Podman-OpenShift-CI-CD"
-        cRepo = "Node-Podman-OpenShift-CI-CD"
+# for when the user inputs a repo link
+if "/" in user_in and len(user_in) > 5:
+    input_type = "repo"
+    if user_in.startswith("https"):
+        user_in = user_in[19:]
+    if user_in.startswith("github"):
+        user_in = user_in[11:]
+    try:
+        rpo  = g.get_repo(user_in)
+    except:
+        st.sidebar.write("Repository not found")
+        valid_input = False
 
+
+
+if valid_input and input_type == "user":
+    rNames = []
+
+    for i in usr.get_repos():
+        rNames.append(i.name)
+
+    rSelection = st.sidebar.selectbox('Choose a Repository:', rNames)
+
+    if st.sidebar.button('View Repository Data'):
+        longName = usr.login + "/" + rSelection
+        input_type = "repo"
+        rpo  = g.get_repo(longName)
 
 
 ################## TOP BAR ################
-st.title('🌐 Github API Data Visualisation')
 
 
-st.write("Current Repository: " + cRepo)
-st.caption("Link to the repository [here](https://github.com/" + lRepo +")")
+if input_type == "user":
+    st.title('👥 User Data Visualisation')
+    st.write("")
+if input_type == "repo":
+    st.title('👥 Repository Data Visualisation')
+if input_type == "null":
+    st.title('👥 GitHub API Data Visualisation')
+    st.write("Enter a username, or link a repository to begin! :)")
 
-
-
-col1_1, col1_2, col1_3 = st.columns(3)
-############# LEFT COLUMN ################
-
-
-currentRepo = g.get_repo(lRepo)
-ownerImage = currentRepo.owner.avatar_url
-ownerName = currentRepo.owner.name
-ownerUser = currentRepo.owner.login
-
-
-col1_1.markdown("![Avatar of Repo Owner ><]("+ ownerImage + "&s=150)")
-col1_1.caption("###### Owner of Repository: ")
-if ownerName is not None:
-    col1_1.markdown("""##### **""" + ownerName + """**""" + """ ("""+ ownerUser + """)""")
-else:
-    col1_1.markdown("""##### **""" + ownerUser + """**""")
+col1_1, col1_2, col1_3, col1_4, col1_5 = st.columns([1.0,1.5,1,1,2])
+# st.write("Current Repository: " + cRepo)
+# st.caption("Link to the repository [here](https://github.com/" + lRepo +")")
 
 
 
 
-######### MIDDLE COLUMN ###########
+# Column 1_1 & 1_2:
+#   -   Display User Avatar + info
+#   -   Also initialises variables used by other columns
+if valid_input and input_type == "user":
+    display_user_info(usr)
+    userRepos = usr.get_repos()
+    userStars = get_total_stars(userRepos)
+    repoNames = get_repo_names(userRepos)
+    repoSizes = get_repo_sizes(userRepos)
+    userE = usr.get_events
 
-if database_repo == True:
-    rnlabels = []
-    rnvalues = []
-    # getting the usernames and values from the languages
-
-    for key in numRepoCommits.keys():
-        rnlabels.append(key)
-    for val in numRepoCommits.values():
-        rnvalues.append(val)
-
-    fig2 = go.Figure(data=[go.Table(header=dict(values=['Repository Name','Number of Commits'],
-                                                line_color='#11151c',
-                                                fill_color='#262730',
-                                                align=['center', 'center'],
-                                                height=30,
-                                                font=dict(color='white', size=16)),
-                                   cells=dict(values=[rnlabels, rnvalues],
-                                              line_color='#11151c',
-                                              fill_color='#0e1117',
-                                              align=['center', 'center'],
-                                              height=23,
-                                              font=dict(color='white', size=[12, 14])),
-                                    columnwidth = [150,80])
-                          ])
-
-    fig2.update_layout(title='Number of commits for each repository', autosize=False,
-                       height=350)
-
-    col1_2.plotly_chart(fig2, use_container_width=True)
+if valid_input and input_type == "repo":
+    st.write(rpo.name)
 
 
-##########################
 
 
-####### RIGHT COLUMN #########
+# currentRepo = g.get_repo(lRepo)
+# ownerImage = currentRepo.owner.avatar_url
+# ownerName = currentRepo.owner.name
+# ownerUser = currentRepo.owner.login
 
-if database_repo == True:
-    langdict = get_repo_languages(cRepo)
 
-    # getting the usernames and values from the languages
-    plabels = []
-    pvalues = []
+# col1_1.markdown("![Avatar of Repo Owner ><]("+ ownerImage + "&s=150)")
+# col1_1.caption("###### Owner of Repository: ")
+# if ownerName is not None:
+#     col1_1.markdown("""##### **""" + ownerName + """**""" + """ ("""+ ownerUser + """)""")
+# else:
+#     col1_1.markdown("""##### **""" + ownerUser + """**""")
 
-    for key in langdict.keys():
-        plabels.append(key)
-    for val in langdict.values():
-        pvalues.append(val)
+
+
+# Column 1_3:
+#   -   Display Followers & Total Repos
+if valid_input and input_type == "user":
+
+
+
+    col1_3.metric("Followers", usr.followers)
+    col1_3.metric("Total Repos", userRepos.totalCount)
+
+# rnlabels = []
+# rnvalues = []
+# # getting the usernames and values from the languages
+
+# for key in numRepoCommits.keys():
+#     rnlabels.append(key)
+# for val in numRepoCommits.values():
+#     rnvalues.append(val)
+
+# fig2 = go.Figure(data=[go.Table(header=dict(values=['Repository Name','Number of Commits'],
+#                                             line_color='#11151c',
+#                                             fill_color='#262730',
+#                                             align=['center', 'center'],
+#                                             height=30,
+#                                             font=dict(color='white', size=16)),
+#                                cells=dict(values=[rnlabels, rnvalues],
+#                                           line_color='#11151c',
+#                                           fill_color='#0e1117',
+#                                           align=['center', 'center'],
+#                                           height=23,
+#                                           font=dict(color='white', size=[12, 14])),
+#                                 columnwidth = [150,80])
+#                       ])
+
+# fig2.update_layout(title='Number of commits for each repository', autosize=False,
+#                    height=350)
+
+# col1_2.plotly_chart(fig2, use_container_width=True)
+
+
+# Column 1_4:
+#   -   Display Following & Stars Received
+if valid_input and input_type == "user":
+
+
+
+    col1_4.metric("Following", usr.following)
+    col1_4.metric("Stars Received", userStars)
+
+
+
+
+# langdict = get_repo_languages(cRepo)
+
+# # getting the usernames and values from the languages
+# plabels = []
+# pvalues = []
+
+# for key in langdict.keys():
+#     plabels.append(key)
+# for val in langdict.values():
+#     pvalues.append(val)
+# fig = go.Figure(data=[go.Pie(labels=plabels, values=pvalues)])
+# fig.update_layout(title='Repository Languages:', autosize=False,
+#                     width=600, height=400)
+# if len(plabels) != 0:
+#     col1_3.plotly_chart(fig, use_container_width=True)
+
+
+
+####### COLUMN 2-1 #########
+
+col2_1, col2_2 =  st.columns([1,2])
+
+if valid_input and input_type == "user":
+    languages = []
+
+    for i in userRepos:
+        languages.append(i.language)
+
+
+    clanguages = dict(Counter(languages))
+    plabels = list(clanguages.keys())
+    pvalues = list(clanguages.values())
+
     fig = go.Figure(data=[go.Pie(labels=plabels, values=pvalues)])
     fig.update_layout(title='Repository Languages:', autosize=False,
-                      width=600, height=400)
+                        width=650, height=500)
     if len(plabels) != 0:
-        col1_3.plotly_chart(fig, use_container_width=True)
+        col2_1.plotly_chart(fig, use_container_width=True)
 
 
+####### COLUMN 2-2 #########
+if valid_input and input_type == "user":
+    names = list(repoSizes.keys())
+    sizes = list(repoSizes.values())
 
-#################
+    fig = go.Figure([go.Bar(x=names, y=sizes)])
 
+    col2_2.plotly_chart(fig, use_container_width=True)
 
-
-animals=['giraffes', 'orangutans', 'monkeys']
-
-fig = go.Figure([go.Bar(x=animals, y=[20, 14, 23])])
-
-st.plotly_chart(fig, use_container_width=True)
-
-
-authordict = get_repo_authors(cRepo)
-
-
-st.write('note: these graphs currently dont display anything from the github api oops sorry')
+if input_type == "repo":
+    st.write("repo")
